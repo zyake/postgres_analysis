@@ -1,0 +1,11 @@
+@startuml
+title acquire ShareLock(conflict with ExclusiveLock)
+
+LockAcquire -> LockAcquireExtended
+LockAcquireExtended --> LockAcquireExtended: get hashcode for LOCK
+LockAcquireExtended --> LockAcquireExtended: acquire parittionLock(16 striping)
+LockAcquireExtended --> LockAcquireExtended: update LOCK
+LockAcquireExtended --> LockAcquireExtended: release partitionLock
+LockAcquireExtended --> LockAcquireExtended: sleep on the LOCK
+
+@enduml
