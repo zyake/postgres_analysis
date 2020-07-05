@@ -5,15 +5,15 @@ object Latch
 object epoll
 object CAS_instruction
 object Sysv_semaphore
-object background_processes
+object background_process
 
 LWLock <|--- LOCK : utilize to protect data structure
 Latch <|--- LOCK : utilize to sleep and receive notification
 CAS_instruction <|--- LWLock : utilize as spin lock
 Sysv_semaphore <|--- LWLock : utilize to sleep and receive notification
 
-LWLock <|--- background_processes : utilize to protect shared objects
-Latch <|--- background_processes : utilize to receive notification
+LWLock <|--- background_process: utilize to protect shared objects
+Latch <|--- background_process : utilize to receive notification
 
 epoll <|--- Latch : utilize to wake up on events
 @enduml
