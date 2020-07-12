@@ -1,0 +1,15 @@
+@startuml
+
+object BufferDesc
+BufferDesc : tag : BufferTag
+BufferDesc : buf_id : Buffer
+object BufferDescriptors
+
+object BufferBlocks
+object page
+
+BufferDescriptors o-- "NBuffers" BufferDesc
+page <|-- "identified by buf_id" BufferDesc
+BufferBlocks o-- "NBuffers" page
+
+@enduml
