@@ -1,0 +1,36 @@
+@startuml
+title Vacuum Overview
+
+heap_vacuum_rel --> lazy_scan_heap
+
+note over lazy_scan_heap: pass1: record dead tuples
+loop from blockno = 0 to max blockno
+    lazy_scan_heap --> heap_page_prune : count and mark deap tuples
+    loop from offset 0 to max offset in a page
+        alt the tuple is dead
+            lazy_scan_heap --> lazy_record_dead_tuple : record offset of a dead tuple
+        end
+
+        lazy_scan_heap --> HeapTupleSatisfiesVacuum : recheck tuple status
+        alt the tuple is dead
+            lazy_scan_heap --> lazy_record_dead_tuple : record offset of a dead tuple        
+        end
+    end
+end
+
+note over lazy_scan_heap: pass2: delete dead tuples
+alt use index = false AND num dead tuples > 0 : 
+    lazy_scan_heap --> lazy_vacuum_page : vacuum a page
+else use index = true AND num dead tuples > 0
+    loop iterate all indexes
+        lazy_scan_heap --> lazy_vacuum_index : bulk delete index tuples pointing to dead tuples
+    end 
+
+    lazy_scan_heap --> lazy_vacuum_heap : vacuum a page
+end
+
+note over heap_vacuum_rel : pass3: truncate a relation and update statistics in pg_class
+heap_vacuum_rel --> lazy_truncate_heap : truncate pages
+heap_vacuum_rel --> vac_update_relstats : update statistics
+
+@enduml

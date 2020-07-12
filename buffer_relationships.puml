@@ -1,5 +1,4 @@
 @startuml
-
 object BufferDesc
 BufferDesc : tag : BufferTag
 BufferDesc : buf_id : Buffer
@@ -8,8 +7,16 @@ object BufferDescriptors
 object BufferBlocks
 object page
 
-BufferDescriptors o-- "NBuffers" BufferDesc
-page <|-- "identified by buf_id" BufferDesc
-BufferBlocks o-- "NBuffers" page
+object buffered_file
 
+object BufferTag
+BufferTag : rnode
+BufferTag : forkNum
+BufferTag : blockNum
+
+BufferDescriptors *-- "NBuffers" BufferDesc
+page <|-- BufferDesc
+BufferBlocks *-- "NBuffers" page
+buffered_file <|-- BufferDesc
+BufferTag <|-- BufferDesc
 @enduml
