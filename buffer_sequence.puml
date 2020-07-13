@@ -1,0 +1,41 @@
+@startuml
+title allocate a buffer in ExecScan
+
+ExecScanFetch --> SeqNext
+SeqNext --> table_scan_getnextslot
+table_scan_getnextslot --> heapgettup_pagemode
+heapgettup_pagemode --> heapgetpage
+heapgetpage --> ReadBufferExtended
+ReadBufferExtended --> ReadBuffer_common
+ReadBuffer_common --> BufferAlloc
+
+BufferAlloc --> BufferAlloc : get hash code for buffer tag
+BufferAlloc --> BufferAlloc : acquire LWLock for the hash code(128 striping)
+BufferAlloc --> BufferAlloc : get BufferDesc for a buffer
+alt BufferDesc exists
+
+    BufferAlloc --> BufferAlloc : pin a buffer
+    BufferAlloc --> BufferAlloc : release LWLock for the hash code
+    BufferAlloc --> BufferAlloc : return the buffer
+else BufferDesc does not exist
+    loop
+        BufferAlloc --> BufferAlloc : select a victim buffer
+        BufferAlloc --> BufferAlloc : pin a locked buffer
+        
+        alt The buffer is dirty
+            alt try to LWLockConditionalAcquire on a LWLock on BufferDesc
+                BufferAlloc --> BufferAlloc : flush a buffer
+            else 
+                BufferAlloc --> BufferAlloc : unpin a buffer and continue
+            end 
+        end 
+
+        BufferAlloc --> BufferAlloc : insert the buffer tag into hash table
+        alt ref count is one
+            BufferAlloc --> BufferAlloc : break
+        end
+    end
+
+    BufferAlloc --> BufferAlloc : return the buffer
+end
+@enduml
