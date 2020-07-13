@@ -1,5 +1,5 @@
 @startuml
-title allocate a buffer in ExecScan
+title allocate a buffer in SeqNext
 
 ExecScanFetch --> SeqNext
 SeqNext --> table_scan_getnextslot
