@@ -1,0 +1,92 @@
+@startuml
+title Vacuum a page 
+
+note over lazy_scan_heap : record and set dead tuples
+loop from 0 to nblocks
+    lazy_scan_heap --> ReadBufferExtended : read and pin a page
+    group Buffer lock duration
+  
+        note over lazy_scan_heap : try to lock the buffer
+        alt Not ConditionalLockBufferForCleanup
+            lazy_scan_heap --> lazy_scan_heap : continue
+        end
+
+        lazy_scan_heap --> heap_page_prune : count and mark deap tuples
+
+        loop from offset 0 to max offset in a page
+            alt the tuple is used or dead 
+                note over lazy_scan_heap : continue
+            end
+            heap_page_prune --> heap_prune_chain : prune a HOT chain
+            
+            alt the tuple is normal
+                alt the tuple is heap only and not chained 
+                    heap_prune_chain --> heap_prune_record_unused : record the unused tuple 
+                    heap_prune_chain --> heap_prune_chain : increment deleted count
+                end 
+                heap_prune_chain --> lazy_scan_heap : return the deleted count(0 or 1)
+            end
+
+            loop while not end of the chain
+                heap_prune_chain --> heap_prune_chain : get tuple data        
+                heap_prune_chain --> heap_prune_chain : record to chainitems
+
+                alt the tuple is live
+                    heap_prune_chain --> heap_prune_chain : break
+                end
+
+                heap_prune_chain --> heap_prune_chain : get ctid for HOT tuple
+            end
+
+            alt prstate.nredirected > 0 || prstate.ndead > 0 || prstate.nunused > 0
+                heap_page_prune --> heap_page_prune_execute
+                
+                loop i = 0 to nredirected
+                    heap_page_prune_execute --> heap_page_prune_execute : set lp_flags to Redirect
+                end 
+
+                loop i = 0 to ndead
+                    heap_page_prune_execute --> heap_page_prune_execute : set lp_flags to Dead
+                end 
+
+                loop i = 0 to unused
+                    heap_page_prune_execute --> heap_page_prune_execute : set lp_flags to Unused
+                end 
+
+                heap_page_prune_execute --> PageRepairFragmentation : repair free space without removing unused line pointers
+                heap_page_prune_execute --> MarkBufferDirty : make the buffer dirty
+                heap_page_prune_execute --> log_heap_clean : log a xl_heap_clean WAL record
+            end
+
+            loop from first offset to max offset
+                alt the tuple is not used
+                    lazy_scan_heap --> lazy_scan_heap : count unused and continue
+                end 
+                
+                alt the tuple is redirected
+                    lazy_scan_heap --> lazy_scan_heap : continue
+                end
+
+                alt the tuple is dead
+                    lazy_scan_heap --> lazy_record_dead_tuple : record the dead item pointer
+                    lazy_scan_heap --> lazy_scan_heap : continue
+                end
+
+                lazy_scan_heap --> lazy_scan_heap : record statistics
+            end
+        end
+
+        lazy_scan_heap --> UnlockReleaseBuffer : unlock the buffer
+    end
+end
+
+note over lazy_scan_heap : actual deletion
+alt num_dead_tuples > 0
+    loop 0 to nindexes
+        lazy_scan_heap --> lazy_vacuum_index
+    end 
+    note over lazy_scan_heap : we cannot remove the tuples until we've removed their index entries
+    lazy_scan_heap --> lazy_vacuum_heap
+end
+
+@enduml
