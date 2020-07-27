@@ -1,0 +1,59 @@
+@startuml
+title Vacuum an index 
+
+lazy_vacuum_index --> index_bulk_delete
+index_bulk_delete --> _bt_start_vacuum : assign new vacuum cycle id and record new vacuum operation.
+index_bulk_delete --> btvacuumscan
+
+loop until blkno >= num_pages
+    group get exact number of blocks 
+        btvacuumscan --> LockRelationForExtension
+        btvacuumscan --> RelationGetNumberOfBlocks
+        btvacuumscan --> UnlockRelationForExtension
+    end
+
+    loop blkno < num_pages ; blkno++
+         btvacuumscan --> btvacuumpage
+         group the buffer lock scope 
+            btvacuumpage --> ReadBufferExtended
+            btvacuumpage --> LockBuffer : BT_READ
+
+            alt is leaf node
+                group exclusive lock the buffer
+                    btvacuumpage --> LockBufferForCleanup : lock the buffer in exclusive mode
+                    loop from min offset to max offset
+                        btvacuumpage --> PageGetItem : get IndexTuple
+                        
+                        btvacuumpage --> lazy_tid_reaped : search the tid in th
+                        alt the IndexTuple points to deleted tid
+                            btvacuumpage --> btvacuumpage : record as deletable 
+                        end
+
+                        alt ndeletable > 0
+                            btvacuumpage --> _bt_delitems_vacuum : delete items from a leaf page
+                            _bt_delitems_vacuum --> PageIndexMultiDelete
+                            alt the number of deleted tuples <= 2
+                                PageIndexMultiDelete --> PageIndexTupleDelete
+                            else
+                                loop from first offset to max offset
+                                    alt the tuple is deleted 
+                                        PageIndexMultiDelete --> PageIndexMultiDelete : skip the line pointer
+                                    else 
+                                        PageIndexMultiDelete --> PageIndexMultiDelete : record the live live pointer
+                                    end 
+                                    PageIndexMultiDelete --> PageIndexMultiDelete : copy using the live pointer
+                                    PageIndexMultiDelete --> PageIndexMultiDelete : compactify the rows
+                                end 
+                            end  
+                            
+                            _bt_delitems_vacuum --> _bt_delitems_vacuum : make the buffer dirty
+                            _bt_delitems_vacuum --> _bt_delitems_vacuum : record a xl_btree_vacuum WAL record
+                        end
+                    end
+                end
+            end 
+         end 
+    end 
+end 
+
+@enduml
