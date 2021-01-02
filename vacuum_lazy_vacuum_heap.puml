@@ -1,0 +1,9 @@
+@startuml
+title row lock - for update conflict with single lock
+
+heap_update --> LockBuffer : unlock
+heap_update --> heap_acquire_tuplock : create a regular lock(AccessExclusiveLock) on the tuple
+heap_update --> XactLockTableWait : try to acquire a regular lock(ShareLock) on the blocking transacionid
+
+
+@enduml

@@ -1,0 +1,23 @@
+@startuml
+object LWLock
+object LOCK
+object Latch
+object epoll_wait
+object kill_sigusr1
+object cmpxchgl
+object Sysv_semaphore
+object background_and_backend_processes
+
+LWLock <|--- LOCK : 共有メモリ上のデータ構造の保護に利用
+Latch <|--- LOCK : 処理を中断してスリープし、外部から通知に反応して処理を再開
+cmpxchgl <|--- LWLock : スピンロックとして利用
+Sysv_semaphore <|--- LWLock : 処理を中断してスリープし、外部から通知に反応して処理を再開
+
+LWLock <|--- background_and_backend_processes : 共有メモリ上のデータ構造の保護に利用
+Latch <|--- background_and_backend_processes : 処理を中断してスリープし、他プロセスからの通知に反応して処理を再開
+LOCK <|--- background_and_backend_processes : SQLオブジェクトのロックに利用
+
+epoll_wait <|--- Latch : イベント通知に反応して処理を再開するのに利用するシステムコール
+kill_sigusr1 <|--- Latch : 待機しているプロセスを起こすために利用するシステムコール
+
+@enduml

@@ -1,0 +1,18 @@
+@startuml
+title LockRows sequence(conflicted)
+
+ExecLockRows --> ExecProcNode : サブプランから次のタプルを取得
+ExecLockRows --> table_tuple_lock : タプルのロックの実施
+table_tuple_lock --> heap_lock_tuple : タプルのロックの実施(heapam)
+heap_lock_tuple --> ReadBuffer : バッファの取得
+heap_lock_tuple --> LockBuffer : バッファの排他ロックの取得
+group バッファの排他ロックのスコープ
+    heap_lock_tuple --> heap_lock_tuple : バッファからタプルの取得
+    heap_lock_tuple --> HeapTupleSatisfiesUpdate : ロック可能なタプルかどうか確認
+    heap_lock_tuple --> compute_new_xmax_infomask : 適切なinfomask, infomask2, xmaxの計算
+    heap_lock_tuple --> heap_lock_tuple : タプルのxmax, infomask, infomask2を更新
+    heap_lock_tuple --> MarkBufferDirty : ダーティバッファとして登録
+    heap_lock_tuple --> heap_lock_tuple : WAL出力
+end
+
+@enduml

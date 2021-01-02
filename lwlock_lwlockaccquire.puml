@@ -1,0 +1,13 @@
+@startuml
+title LWLockAcquire
+
+LWLockAcquire --> HOLD_INTERRUPTS : 初めにinterruptを無効化することで、ロックを放す前にinterruptに反応することを防止
+loop
+    LWLockAcquire --> LWLockAttemptLock
+        
+end
+
+
+
+
+@enduml

@@ -17,6 +17,6 @@ BufferTag : blockNum
 BufferDescriptors *-- "NBuffers" BufferDesc
 page <|-- BufferDesc
 BufferBlocks *-- "NBuffers" page
-buffered_file <|-- BufferDesc
+buffered_file <|-- "tag" BufferDesc
 BufferTag <|-- BufferDesc
 @enduml
