@@ -1,5 +1,5 @@
 @startuml
-title LockRows sequence(conflicted)
+title LockRows sequence(shared)
 
 ExecLockRows --> ExecProcNode : サブプランから次のタプルを取得
 ExecLockRows --> table_tuple_lock : タプルのロックの実施
@@ -13,12 +13,12 @@ group バッファの排他ロックのスコープ
     group conflict発生時の差分
         HeapTupleSatisfiesUpdate --> heap_lock_tuple : return TM_BeingModified(行を更新したトランザクションが実行中の場合)
         heap_lock_tuple --> LockBuffer : Unlock
-        heap_lock_tuple --> heap_acquire_tuplock : tuple lock(regular lock)の取得
-        heap_lock_tuple --> XactLockTableWait : 行を更新したトランザクションの完了待ち
+        heap_lock_tuple --> heap_lock_tuple : LockTupleShareかつ、行の排他ロックが取得されていなければロックの取得待ちを行わない。
         heap_lock_tuple --> LockBuffer : バッファの排他ロックの取得
     end
     heap_lock_tuple --> compute_new_xmax_infomask : 適切なinfomask, infomask2, xmaxの計算
-    heap_lock_tuple --> heap_lock_tuple : タプルのxmax, infomask, infomask2を更新
+    compute_new_xmax_infomask --> MultiXactIdCreate : 必要に応じて新しいMultiXactを作成し、MultiXactIdを払い出す
+    heap_lock_tuple --> heap_lock_tuple : タプルのxmax, infomask, infomask2を更新し、この時xmaxは払い出したMultiXactIdとする
     heap_lock_tuple --> MarkBufferDirty : ダーティバッファとして登録
     heap_lock_tuple --> heap_lock_tuple : WAL出力
 end
