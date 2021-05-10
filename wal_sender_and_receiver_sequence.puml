@@ -1,0 +1,29 @@
+@startuml
+title WAL sender and receiver sequence
+
+box "replica"
+    participant WAL_Receiver
+    participant startup_process
+end box
+
+box "primary"
+    participant PostMaster
+    participant WAL_Sender
+    participant backend_process
+end box
+
+WAL_Receiver --> PostMaster : Connect
+PostMaster --> WAL_Sender : Fork a new backend process
+WAL_Receiver --> WAL_Sender : START_REPLICATION command with start LSN
+
+loop
+    WAL_Sender --> WAL_Sender : Wait until WAL buffer flush
+    backend_process --> WAL_Sender : Wakeup WAL sender
+    WAL_Sender --> WAL_Sender : Read WAL records(128 kB per read)
+    WAL_Sender --> WAL_Receiver : Send WAL records
+    WAL_Receiver --> WAL_Receiver: Flush WAL records
+    WAL_Receiver --> startup_process: Wakeup startup process 
+    startup_process --> startup_process: Read WAL records
+    startup_process --> startup_process: Apply WAL records
+end
+@enduml
