@@ -1,0 +1,18 @@
+@startuml
+title WAL receiver ping sequence
+
+box "replica"
+    participant WAL_Receiver
+end box
+
+box "primary"
+    participant WAL_Sender
+end box
+
+WAL_Receiver --> WAL_Sender : START_REPLICATION command with start LSN
+
+loop
+    WAL_Receiver --> WAL_Receiver: wait for wal_receiver_status_interval seconds(default 10s)
+    WAL_Receiver --> WAL_Sender: Send status of replica 
+end
+@enduml
